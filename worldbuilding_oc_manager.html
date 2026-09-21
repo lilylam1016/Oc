@@ -1,0 +1,964 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Ficsona - 多巴胺創作宇宙 & OC 關係網管理</title>
+    
+    <!-- Tailwind CSS -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script>
+        tailwind.config = {
+            theme: {
+                extend: {
+                    colors: {
+                        dopamineBg: '#fef6ff',
+                        dopaminePink: '#ff4b82',
+                        dopamineYellow: '#ffc83b',
+                        dopamineGreen: '#10b981',
+                        dopamineBlue: '#3b82f6',
+                        dopaminePurple: '#8b5cf6',
+                        dopamineOrange: '#ff7e36',
+                        cardBg: '#ffffff',
+                    },
+                    boxShadow: {
+                        'pop-pink': '0 10px 25px -5px rgba(255, 75, 130, 0.3)',
+                        'pop-yellow': '0 10px 25px -5px rgba(255, 200, 59, 0.35)',
+                        'pop-purple': '0 10px 25px -5px rgba(139, 92, 246, 0.3)',
+                        'neo': '4px 4px 0px 0px rgba(0,0,0,0.85)',
+                        'neo-sm': '2px 2px 0px 0px rgba(0,0,0,0.85)',
+                    },
+                    fontFamily: {
+                        sans: ['Inter', 'Microsoft JhengHei', 'PingFang TC', 'sans-serif'],
+                    }
+                }
+            }
+        }
+    </script>
+
+    <!-- FontAwesome Icons -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    
+    <!-- Vis.js Network for Honor of Kings style Radial Relationship Graph -->
+    <script type="text/javascript" src="https://unpkg.com/vis-network/standalone/umd/vis-network.min.js"></script>
+
+    <style>
+        body {
+            background-color: #fef6ff;
+            background-image: 
+                radial-gradient(#ff4b82 0.75px, transparent 0.75px), 
+                radial-gradient(#8b5cf6 0.75px, #fef6ff 0.75px);
+            background-size: 30px 30px;
+            background-position: 0 0, 15px 15px;
+            color: #1e1b4b;
+            font-family: 'Inter', 'Microsoft JhengHei', sans-serif;
+            overflow-x: hidden;
+        }
+
+        /* Custom Fun Scrollbar */
+        ::-webkit-scrollbar {
+            width: 8px;
+            height: 8px;
+        }
+        ::-webkit-scrollbar-track {
+            background: #fdf2f8;
+        }
+        ::-webkit-scrollbar-thumb {
+            background: #ff4b82;
+            border-radius: 999px;
+        }
+        ::-webkit-scrollbar-thumb:hover {
+            background: #8b5cf6;
+        }
+
+        .dopamine-card {
+            background: #ffffff;
+            border: 2px solid #1e1b4b;
+            border-radius: 1.25rem;
+            transition: all 0.25s cubic-bezier(0.34, 1.56, 0.64, 1);
+        }
+
+        .dopamine-card:hover {
+            transform: translateY(-3px);
+            box-shadow: 6px 6px 0px 0px #1e1b4b;
+        }
+
+        .dopamine-btn {
+            border: 2px solid #1e1b4b;
+            border-radius: 0.875rem;
+            font-weight: 700;
+            transition: all 0.2s cubic-bezier(0.34, 1.56, 0.64, 1);
+            box-shadow: 3px 3px 0px 0px #1e1b4b;
+        }
+
+        .dopamine-btn:hover {
+            transform: translate(-2px, -2px);
+            box-shadow: 5px 5px 0px 0px #1e1b4b;
+        }
+
+        .dopamine-btn:active {
+            transform: translate(1px, 1px);
+            box-shadow: 1px 1px 0px 0px #1e1b4b;
+        }
+
+        /* Radial canvas gradient */
+        #network-graph {
+            width: 100%;
+            height: 100%;
+            background: radial-gradient(circle at center, #ffffff 0%, #fae8ff 100%);
+            border-radius: 1.25rem;
+        }
+    </style>
+</head>
+<body class="flex h-screen overflow-hidden">
+
+    <!-- Sidebar -->
+    <aside class="w-72 bg-white border-r-2 border-indigo-950 flex flex-col justify-between z-20 flex-shrink-0 p-4 shadow-xl">
+        <div class="space-y-6">
+            <!-- App Logo Header -->
+            <div class="flex items-center gap-3 p-2 bg-pink-100 rounded-2xl border-2 border-indigo-950">
+                <div class="w-11 h-11 rounded-xl bg-dopaminePink text-white font-black text-2xl flex items-center justify-center border-2 border-indigo-950 shadow-neo-sm transform -rotate-3">
+                    ✦
+                </div>
+                <div>
+                    <h1 class="font-black text-indigo-950 text-lg leading-tight tracking-wide">Ficsona</h1>
+                    <span class="text-xs font-black text-dopaminePurple bg-purple-200 px-2 py-0.5 rounded-full inline-block mt-0.5">多巴胺創作宇宙</span>
+                </div>
+            </div>
+
+            <!-- Navigation Links -->
+            <nav class="space-y-2">
+                <button onclick="switchTab('dashboard')" id="nav-dashboard" class="nav-btn w-full flex items-center gap-3 px-4 py-3 rounded-xl text-sm font-black transition-all bg-dopamineYellow text-indigo-950 border-2 border-indigo-950 shadow-neo-sm">
+                    <i class="fa-solid fa-shapes text-lg text-dopaminePink"></i>
+                    <span>工作台概覽</span>
+                </button>
+
+                <button onclick="switchTab('world')" id="nav-world" class="nav-btn w-full flex items-center gap-3 px-4 py-3 rounded-xl text-sm font-bold text-gray-600 hover:bg-purple-100 hover:text-indigo-950 transition-all">
+                    <i class="fa-solid fa-globe text-lg text-dopaminePurple"></i>
+                    <span>世界觀與設定</span>
+                </button>
+
+                <button onclick="switchTab('timeline')" id="nav-timeline" class="nav-btn w-full flex items-center gap-3 px-4 py-3 rounded-xl text-sm font-bold text-gray-600 hover:bg-pink-100 hover:text-indigo-950 transition-all">
+                    <i class="fa-solid fa-timeline text-lg text-dopaminePink"></i>
+                    <span>時間線與重大事件</span>
+                </button>
+
+                <button onclick="switchTab('relationships')" id="nav-relationships" class="nav-btn w-full flex items-center gap-3 px-4 py-3 rounded-xl text-sm font-bold text-gray-600 hover:bg-blue-100 hover:text-indigo-950 transition-all">
+                    <i class="fa-solid fa-diagram-project text-lg text-dopamineBlue"></i>
+                    <span>王者同款角色關係網</span>
+                </button>
+            </nav>
+        </div>
+
+        <!-- Sidebar Active World Card -->
+        <div class="bg-gradient-to-br from-yellow-100 via-pink-100 to-purple-100 p-4 rounded-2xl border-2 border-indigo-950 shadow-neo-sm space-y-2">
+            <div class="flex justify-between items-center text-xs font-black text-indigo-950">
+                <span>✦ 當前世界觀</span>
+                <span class="bg-dopamineGreen text-white px-2 py-0.5 rounded-full text-[10px]">Active</span>
+            </div>
+            <select id="world-select" onchange="changeActiveWorld(this.value)" class="w-full bg-white border-2 border-indigo-950 rounded-xl px-3 py-2 text-xs font-black text-indigo-950 focus:outline-none focus:ring-2 focus:ring-dopaminePink cursor-pointer">
+                <!-- Populated dynamically -->
+            </select>
+        </div>
+    </aside>
+
+    <!-- Main Content Area -->
+    <div class="flex-1 flex flex-col min-w-0 h-full overflow-hidden">
+
+        <!-- Top Bar -->
+        <header class="h-20 bg-white/80 backdrop-blur-md border-b-2 border-indigo-950 px-6 flex items-center justify-between z-10 flex-shrink-0">
+            <div class="flex items-center gap-3">
+                <span class="text-2xl">⚡</span>
+                <h2 id="page-title" class="text-xl font-black text-indigo-950 tracking-wide">工作台概覽</h2>
+            </div>
+
+            <!-- Header Action Buttons -->
+            <div class="flex items-center gap-3">
+                <button onclick="openModal('modal-add-character')" class="dopamine-btn px-4 py-2 bg-dopaminePink text-white text-xs flex items-center gap-2">
+                    <i class="fa-solid fa-user-plus"></i>
+                    <span>新增角色 (OC)</span>
+                </button>
+                <button onclick="openModal('modal-add-event')" class="dopamine-btn px-4 py-2 bg-dopamineYellow text-indigo-950 text-xs flex items-center gap-2">
+                    <i class="fa-solid fa-bolt"></i>
+                    <span>新增事件</span>
+                </button>
+                <button onclick="openModal('modal-add-relation')" class="dopamine-btn px-4 py-2 bg-dopamineBlue text-white text-xs flex items-center gap-2">
+                    <i class="fa-solid fa-heart flex-shrink-0"></i>
+                    <span>建立關係</span>
+                </button>
+            </div>
+        </header>
+
+        <!-- Main Workspace Container -->
+        <main class="flex-1 overflow-y-auto p-6 space-y-6">
+
+            <!-- TAB 1: DASHBOARD -->
+            <section id="tab-dashboard" class="tab-content space-y-6">
+                <!-- Banner -->
+                <div class="bg-gradient-to-r from-pink-400 via-purple-400 to-indigo-500 rounded-3xl border-2 border-indigo-950 p-6 shadow-neo text-white relative overflow-hidden">
+                    <div class="relative z-10 space-y-2">
+                        <span class="px-3 py-1 rounded-full text-xs font-black bg-yellow-300 text-indigo-950 border-2 border-indigo-950 inline-block">Dopamine Worldbuilder v2.0</span>
+                        <h2 class="text-3xl font-black tracking-wide drop-shadow-md">打造色彩斑斕的原創宇宙！ 🎨</h2>
+                        <p class="text-sm font-bold text-pink-100 max-w-xl leading-relaxed">
+                            歡迎回到創作空間！輕鬆點擊下方卡片即可檢視角色關聯圖、排定時間線與紀元大事。
+                        </p>
+                    </div>
+                    <div class="absolute -right-6 -bottom-10 text-9xl opacity-20 pointer-events-none select-none">🦄</div>
+                </div>
+
+                <!-- Stats Grid -->
+                <div class="grid grid-cols-2 md:grid-cols-4 gap-4">
+                    <div class="dopamine-card p-5 bg-pink-100 flex items-center justify-between">
+                        <div>
+                            <p class="text-xs font-black text-pink-600 uppercase tracking-wider">登場 OC 角色</p>
+                            <h3 id="stat-chars" class="text-3xl font-black text-indigo-950 mt-1">0</h3>
+                        </div>
+                        <div class="w-12 h-12 rounded-2xl bg-dopaminePink text-white border-2 border-indigo-950 flex items-center justify-center text-xl shadow-neo-sm transform rotate-6">
+                            <i class="fa-solid fa-users"></i>
+                        </div>
+                    </div>
+
+                    <div class="dopamine-card p-5 bg-yellow-100 flex items-center justify-between">
+                        <div>
+                            <p class="text-xs font-black text-yellow-700 uppercase tracking-wider">重大事件</p>
+                            <h3 id="stat-events" class="text-3xl font-black text-indigo-950 mt-1">0</h3>
+                        </div>
+                        <div class="w-12 h-12 rounded-2xl bg-dopamineYellow text-indigo-950 border-2 border-indigo-950 flex items-center justify-center text-xl shadow-neo-sm transform -rotate-6">
+                            <i class="fa-solid fa-bolt"></i>
+                        </div>
+                    </div>
+
+                    <div class="dopamine-card p-5 bg-blue-100 flex items-center justify-between">
+                        <div>
+                            <p class="text-xs font-black text-blue-600 uppercase tracking-wider">關係連線網</p>
+                            <h3 id="stat-relations" class="text-3xl font-black text-indigo-950 mt-1">0</h3>
+                        </div>
+                        <div class="w-12 h-12 rounded-2xl bg-dopamineBlue text-white border-2 border-indigo-950 flex items-center justify-center text-xl shadow-neo-sm transform rotate-3">
+                            <i class="fa-solid fa-heart"></i>
+                        </div>
+                    </div>
+
+                    <div class="dopamine-card p-5 bg-purple-100 flex items-center justify-between">
+                        <div>
+                            <p class="text-xs font-black text-purple-600 uppercase tracking-wider">時間線分支</p>
+                            <h3 id="stat-timelines" class="text-3xl font-black text-indigo-950 mt-1">2</h3>
+                        </div>
+                        <div class="w-12 h-12 rounded-2xl bg-dopaminePurple text-white border-2 border-indigo-950 flex items-center justify-center text-xl shadow-neo-sm transform -rotate-3">
+                            <i class="fa-solid fa-code-branch"></i>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Recent Content Grid -->
+                <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
+                    <!-- Events -->
+                    <div class="dopamine-card p-6 bg-white space-y-4">
+                        <div class="flex items-center justify-between border-b-2 border-indigo-950 pb-3">
+                            <h3 class="font-black text-indigo-950 text-base flex items-center gap-2">
+                                <span class="text-xl">📜</span> 近期歷史史詩事件
+                            </h3>
+                            <button onclick="switchTab('timeline')" class="text-xs font-black text-dopaminePink hover:underline">查看全部</button>
+                        </div>
+                        <div id="dashboard-recent-events" class="space-y-3">
+                            <!-- Populated dynamically -->
+                        </div>
+                    </div>
+
+                    <!-- Characters -->
+                    <div class="dopamine-card p-6 bg-white space-y-4">
+                        <div class="flex items-center justify-between border-b-2 border-indigo-950 pb-3">
+                            <h3 class="font-black text-indigo-950 text-base flex items-center gap-2">
+                                <span class="text-xl">🌟</span> 核心 OC 陣容
+                            </h3>
+                            <button onclick="switchTab('relationships')" class="text-xs font-black text-dopamineBlue hover:underline">進入關係圖</button>
+                        </div>
+                        <div id="dashboard-recent-chars" class="grid grid-cols-2 gap-3">
+                            <!-- Populated dynamically -->
+                        </div>
+                    </div>
+                </div>
+            </section>
+
+            <!-- TAB 2: WORLD LORE -->
+            <section id="tab-world" class="tab-content hidden space-y-6">
+                <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
+                    <div class="lg:col-span-2 space-y-6">
+                        <!-- Main Lore Card -->
+                        <div class="dopamine-card p-6 bg-amber-50 space-y-4">
+                            <div class="flex items-center justify-between">
+                                <h3 id="lore-title" class="text-2xl font-black text-indigo-950">--</h3>
+                                <div class="flex gap-2">
+                                    <span id="lore-type-tag" class="px-3 py-1 rounded-full text-xs font-black bg-purple-200 text-purple-900 border-2 border-indigo-950">奇幻</span>
+                                    <span id="lore-status-tag" class="px-3 py-1 rounded-full text-xs font-black bg-emerald-200 text-emerald-900 border-2 border-indigo-950">構建中</span>
+                                </div>
+                            </div>
+                            <p id="lore-desc" class="text-sm font-bold text-gray-700 leading-relaxed whitespace-pre-line bg-white p-4 rounded-2xl border-2 border-indigo-950">
+                                載入中...
+                            </p>
+                        </div>
+
+                        <!-- Factions List -->
+                        <div class="dopamine-card p-6 bg-white space-y-4">
+                            <h4 class="font-black text-base text-indigo-950 flex items-center gap-2">
+                                <span>🏰</span> 主要陣營與大勢力
+                            </h4>
+                            <div id="factions-list" class="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                                <!-- Populated dynamically -->
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- World List -->
+                    <div class="space-y-4">
+                        <div class="dopamine-card p-5 bg-purple-50 space-y-3">
+                            <h4 class="font-black text-sm text-indigo-950">切換世界觀資料庫</h4>
+                            <div id="world-list-container" class="space-y-2">
+                                <!-- Populated dynamically -->
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </section>
+
+            <!-- TAB 3: TIMELINE -->
+            <section id="tab-timeline" class="tab-content hidden space-y-6">
+                <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-4 bg-white p-4 rounded-2xl border-2 border-indigo-950">
+                    <div>
+                        <h2 class="text-lg font-black text-indigo-950">時間軸編年史</h2>
+                        <p class="text-xs font-bold text-gray-500">切換主線或 IF 平行線查看歷史事件演進。</p>
+                    </div>
+
+                    <div class="flex gap-2 bg-pink-100 p-1.5 rounded-2xl border-2 border-indigo-950">
+                        <button id="tl-btn-main" onclick="filterTimeline('Main')" class="dopamine-btn px-4 py-1.5 text-xs bg-dopaminePink text-white">
+                            主時間線 (Main)
+                        </button>
+                        <button id="tl-btn-if" onclick="filterTimeline('IF')" class="dopamine-btn px-4 py-1.5 text-xs bg-white text-indigo-950">
+                            IF 支線 (Alternate)
+                        </button>
+                    </div>
+                </div>
+
+                <!-- Timeline Items -->
+                <div class="relative pl-8 border-l-4 border-dopaminePink space-y-8 my-6 ml-4" id="timeline-events-container">
+                    <!-- Event nodes populated dynamically -->
+                </div>
+            </section>
+
+            <!-- TAB 4: RELATIONSHIP GRAPH (HONOR OF KINGS STYLE) -->
+            <section id="tab-relationships" class="tab-content hidden space-y-4">
+                <div class="flex items-center justify-between bg-white p-4 rounded-2xl border-2 border-indigo-950">
+                    <div>
+                        <h2 class="text-lg font-black text-indigo-950 flex items-center gap-2">
+                            <span>王者榮耀同款星系人物關係圖</span>
+                            <span class="text-xs px-3 py-1 rounded-full bg-yellow-300 text-indigo-950 border-2 border-indigo-950 font-black">點擊中心聚焦</span>
+                        </h2>
+                        <p class="text-xs font-bold text-gray-500 mt-0.5">點擊任意衛星角色可平滑設為核心焦點；右側側邊欄顯示角色詳細檔案卡。</p>
+                    </div>
+                    <button onclick="resetGraphFocus()" class="dopamine-btn px-4 py-2 bg-dopamineYellow text-indigo-950 text-xs">
+                        <i class="fa-solid fa-arrows-to-dot mr-1"></i>重置視角
+                    </button>
+                </div>
+
+                <!-- Canvas + Drawer -->
+                <div class="grid grid-cols-1 lg:grid-cols-3 gap-6 h-[580px]">
+                    <!-- Canvas (2 cols) -->
+                    <div class="lg:col-span-2 dopamine-card relative p-2 bg-purple-50 overflow-hidden h-full">
+                        <div id="network-graph"></div>
+                        <div class="absolute bottom-4 left-4 bg-white/90 backdrop-blur-sm p-3 rounded-2xl border-2 border-indigo-950 text-xs font-black space-y-1 shadow-neo-sm">
+                            <div class="flex items-center gap-2"><span class="w-3 h-3 rounded-full bg-dopamineYellow border border-indigo-950"></span> 核心中心人物</div>
+                            <div class="flex items-center gap-2"><span class="w-3 h-3 rounded-full bg-dopaminePink border border-indigo-950"></span> 關聯 OC / 盟友</div>
+                        </div>
+                    </div>
+
+                    <!-- Right Side Character Info Drawer (1 col) -->
+                    <div class="dopamine-card p-5 bg-white overflow-y-auto h-full space-y-4" id="char-drawer">
+                        <!-- Populated dynamically -->
+                    </div>
+                </div>
+            </section>
+
+        </main>
+    </div>
+
+    <!-- MODAL: ADD CHARACTER -->
+    <div id="modal-add-character" class="fixed inset-0 bg-indigo-950/60 backdrop-blur-sm z-50 flex items-center justify-center hidden p-4">
+        <div class="dopamine-card bg-white w-full max-w-md p-6 space-y-4 shadow-neo">
+            <div class="flex items-center justify-between border-b-2 border-indigo-950 pb-3">
+                <h3 class="font-black text-indigo-950 text-base">✨ 新建角色檔案 (OC)</h3>
+                <button onclick="closeModal('modal-add-character')" class="text-gray-500 hover:text-black font-black text-lg">✕</button>
+            </div>
+            <form id="form-add-character" onsubmit="handleAddCharacter(event)" class="space-y-3">
+                <div>
+                    <label class="block text-xs font-black text-indigo-950 mb-1">角色姓名 *</label>
+                    <input type="text" id="char-name" required placeholder="例如：維克多" class="w-full bg-pink-50 border-2 border-indigo-950 rounded-xl px-3 py-2 text-xs font-bold text-indigo-950 focus:outline-none focus:ring-2 focus:ring-dopaminePink">
+                </div>
+                <div>
+                    <label class="block text-xs font-black text-indigo-950 mb-1">稱號 / 職業 *</label>
+                    <input type="text" id="char-title" required placeholder="例如：黃昏變奏師" class="w-full bg-pink-50 border-2 border-indigo-950 rounded-xl px-3 py-2 text-xs font-bold text-indigo-950 focus:outline-none focus:ring-2 focus:ring-dopaminePink">
+                </div>
+                <div>
+                    <label class="block text-xs font-black text-indigo-950 mb-1">所屬陣營</label>
+                    <input type="text" id="char-faction" placeholder="例如：黑曜學社" class="w-full bg-pink-50 border-2 border-indigo-950 rounded-xl px-3 py-2 text-xs font-bold text-indigo-950 focus:outline-none focus:ring-2 focus:ring-dopaminePink">
+                </div>
+                <div>
+                    <label class="block text-xs font-black text-indigo-950 mb-1">頭像圖片網址 (可空)</label>
+                    <input type="url" id="char-avatar" placeholder="https://..." class="w-full bg-pink-50 border-2 border-indigo-950 rounded-xl px-3 py-2 text-xs font-bold text-indigo-950 focus:outline-none focus:ring-2 focus:ring-dopaminePink">
+                </div>
+                <div>
+                    <label class="block text-xs font-black text-indigo-950 mb-1">簡短背景故事與性格</label>
+                    <textarea id="char-bio" rows="3" class="w-full bg-pink-50 border-2 border-indigo-950 rounded-xl px-3 py-2 text-xs font-bold text-indigo-950 focus:outline-none focus:ring-2 focus:ring-dopaminePink"></textarea>
+                </div>
+                <div class="flex justify-end gap-2 pt-2">
+                    <button type="button" onclick="closeModal('modal-add-character')" class="dopamine-btn px-4 py-2 bg-gray-200 text-indigo-950 text-xs">取消</button>
+                    <button type="submit" class="dopamine-btn px-4 py-2 bg-dopaminePink text-white text-xs">建立角色</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- MODAL: ADD RELATIONSHIP -->
+    <div id="modal-add-relation" class="fixed inset-0 bg-indigo-950/60 backdrop-blur-sm z-50 flex items-center justify-center hidden p-4">
+        <div class="dopamine-card bg-white w-full max-w-md p-6 space-y-4 shadow-neo">
+            <div class="flex items-center justify-between border-b-2 border-indigo-950 pb-3">
+                <h3 class="font-black text-indigo-950 text-base">💖 建立角色關係連線</h3>
+                <button onclick="closeModal('modal-add-relation')" class="text-gray-500 hover:text-black font-black text-lg">✕</button>
+            </div>
+            <form id="form-add-relation" onsubmit="handleAddRelation(event)" class="space-y-3">
+                <div>
+                    <label class="block text-xs font-black text-indigo-950 mb-1">起始角色 (From) *</label>
+                    <select id="rel-from" required class="w-full bg-blue-50 border-2 border-indigo-950 rounded-xl px-3 py-2 text-xs font-bold text-indigo-950 focus:outline-none focus:ring-2 focus:ring-dopamineBlue">
+                    </select>
+                </div>
+                <div>
+                    <label class="block text-xs font-black text-indigo-950 mb-1">目標角色 (To) *</label>
+                    <select id="rel-to" required class="w-full bg-blue-50 border-2 border-indigo-950 rounded-xl px-3 py-2 text-xs font-bold text-indigo-950 focus:outline-none focus:ring-2 focus:ring-dopamineBlue">
+                    </select>
+                </div>
+                <div>
+                    <label class="block text-xs font-black text-indigo-950 mb-1">關係稱謂 / 標籤 *</label>
+                    <input type="text" id="rel-label" required placeholder="例如：宿敵、徒弟、摯友、CP" class="w-full bg-blue-50 border-2 border-indigo-950 rounded-xl px-3 py-2 text-xs font-bold text-indigo-950 focus:outline-none focus:ring-2 focus:ring-dopamineBlue">
+                </div>
+                <div class="flex justify-end gap-2 pt-2">
+                    <button type="button" onclick="closeModal('modal-add-relation')" class="dopamine-btn px-4 py-2 bg-gray-200 text-indigo-950 text-xs">取消</button>
+                    <button type="submit" class="dopamine-btn px-4 py-2 bg-dopamineBlue text-white text-xs">新增連線</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- MODAL: ADD EVENT -->
+    <div id="modal-add-event" class="fixed inset-0 bg-indigo-950/60 backdrop-blur-sm z-50 flex items-center justify-center hidden p-4">
+        <div class="dopamine-card bg-white w-full max-w-md p-6 space-y-4 shadow-neo">
+            <div class="flex items-center justify-between border-b-2 border-indigo-950 pb-3">
+                <h3 class="font-black text-indigo-950 text-base">⚡ 新增編年史事件</h3>
+                <button onclick="closeModal('modal-add-event')" class="text-gray-500 hover:text-black font-black text-lg">✕</button>
+            </div>
+            <form id="form-add-event" onsubmit="handleAddEvent(event)" class="space-y-3">
+                <div>
+                    <label class="block text-xs font-black text-indigo-950 mb-1">事件名稱 *</label>
+                    <input type="text" id="event-title" required placeholder="例如：黃昏議會覆滅" class="w-full bg-yellow-50 border-2 border-indigo-950 rounded-xl px-3 py-2 text-xs font-bold text-indigo-950 focus:outline-none focus:ring-2 focus:ring-dopamineYellow">
+                </div>
+                <div>
+                    <label class="block text-xs font-black text-indigo-950 mb-1">紀元 / 年代 *</label>
+                    <input type="text" id="event-year" required placeholder="例如：星歷 1042 年" class="w-full bg-yellow-50 border-2 border-indigo-950 rounded-xl px-3 py-2 text-xs font-bold text-indigo-950 focus:outline-none focus:ring-2 focus:ring-dopamineYellow">
+                </div>
+                <div>
+                    <label class="block text-xs font-black text-indigo-950 mb-1">時間線類別 *</label>
+                    <select id="event-timeline-type" class="w-full bg-yellow-50 border-2 border-indigo-950 rounded-xl px-3 py-2 text-xs font-bold text-indigo-950 focus:outline-none focus:ring-2 focus:ring-dopamineYellow">
+                        <option value="Main">主時間線 (Main Timeline)</option>
+                        <option value="IF">IF 支線 / 平行可能性</option>
+                    </select>
+                </div>
+                <div>
+                    <label class="block text-xs font-black text-indigo-950 mb-1">事件詳細記載</label>
+                    <textarea id="event-desc" rows="3" class="w-full bg-yellow-50 border-2 border-indigo-950 rounded-xl px-3 py-2 text-xs font-bold text-indigo-950 focus:outline-none focus:ring-2 focus:ring-dopamineYellow"></textarea>
+                </div>
+                <div class="flex justify-end gap-2 pt-2">
+                    <button type="button" onclick="closeModal('modal-add-event')" class="dopamine-btn px-4 py-2 bg-gray-200 text-indigo-950 text-xs">取消</button>
+                    <button type="submit" class="dopamine-btn px-4 py-2 bg-dopamineYellow text-indigo-950 text-xs">儲存事件</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <script>
+        // Initial Mock Data
+        const INITIAL_DATA = {
+            activeWorldId: "w1",
+            worlds: [
+                {
+                    id: "w1",
+                    name: "黃昏夜曲 (Brass Nocturne)",
+                    type: "蒸氣龐克 / 奇幻",
+                    status: "核心構建中",
+                    description: "在永夜蒸氣覆蓋的阿爾卡納城，符文龐克科技與古老神明遺骸交織。三大議會把持著「以太晶核」的能源命脈，背後卻隱藏著世界崩毀的倒數。",
+                    factions: [
+                        { name: "星環執法隊", desc: "維持上城區秩序的武裝力量" },
+                        { name: "黑曜學社", desc: "研究禁忌古神遺物的神秘組織" },
+                        { name: "黃昏流浪者", desc: "下城區反抗軍聯盟" }
+                    ]
+                },
+                {
+                    id: "w2",
+                    name: "星環宇宙 (Test World)",
+                    type: "科幻太空",
+                    status: "草稿階段",
+                    description: "跨星系聯邦與深空異種交界處的邊境故事。",
+                    factions: [
+                        { name: "聯邦第一艦隊", desc: "星系防衛力量" }
+                    ]
+                }
+            ],
+            characters: [
+                {
+                    id: "c1",
+                    worldId: "w1",
+                    name: "Victor V.",
+                    title: "黃昏變奏師",
+                    faction: "黑曜學社",
+                    avatar: "https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=150&auto=format&fit=crop&q=80",
+                    bio: "掌握以太共鳴原理的叛逆學者，曾是執法隊首席研究員，現因探索禁忌真理而被通緝。"
+                },
+                {
+                    id: "c2",
+                    worldId: "w1",
+                    name: "Aster Vale",
+                    title: "星環執行官",
+                    faction: "星環執法隊",
+                    avatar: "https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?w=150&auto=format&fit=crop&q=80",
+                    bio: "恪守鐵律的執行官，與 Victor 曾是莫逆之交，如今站在對立面。"
+                },
+                {
+                    id: "c3",
+                    worldId: "w1",
+                    name: "Leo",
+                    title: "機巧技師",
+                    faction: "黃昏流浪者",
+                    avatar: "https://images.unsplash.com/photo-1500648767791-00dcc994a43e?w=150&auto=format&fit=crop&q=80",
+                    bio: "下城區最具天賦的械鬥天才，Victor 的親傳弟子。"
+                },
+                {
+                    id: "c4",
+                    worldId: "w1",
+                    name: "The Unreachable",
+                    title: "深淵領主",
+                    faction: "古神異端",
+                    avatar: "https://images.unsplash.com/photo-1492562080023-ab3db95bfbce?w=150&auto=format&fit=crop&q=80",
+                    bio: "潛伏於以太陰影中的舊時代殘響。"
+                }
+            ],
+            relationships: [
+                { from: "c1", to: "c2", label: "宿敵 / 前友" },
+                { from: "c1", to: "c3", label: "師徒" },
+                { from: "c1", to: "c4", label: "敵對" },
+                { from: "c2", to: "c4", label: "監視" },
+                { from: "c3", to: "c2", label: "警惕" }
+            ],
+            events: [
+                {
+                    id: "e1",
+                    worldId: "w1",
+                    year: "星歷 1042 年",
+                    title: "以太晶核大爆炸 (以太災變)",
+                    timeline: "Main",
+                    desc: "阿爾卡納中央能源塔發生不可逆過載，下城區近三分之一區域陷落，Victor 正是在此事件中發現了世界真相。"
+                },
+                {
+                    id: "e2",
+                    worldId: "w1",
+                    year: "星歷 1045 年",
+                    title: "黃昏叛亂戰役",
+                    timeline: "Main",
+                    desc: "Aster Vale 帶領執法隊圍剿黑曜學社地下實驗室，徹底切斷兩人的舊情。"
+                },
+                {
+                    id: "e3",
+                    worldId: "w1",
+                    year: "IF 變革線 - 1043 年",
+                    title: "Victor 選擇妥協並掌握權杖",
+                    timeline: "IF",
+                    desc: "平行分支中，Victor 沒有流亡，而是成功政變接管了星環執法隊。"
+                }
+            ]
+        };
+
+        let appData = loadStore();
+        let activeGraphNetwork = null;
+        let selectedCharacterId = "c1";
+        let currentTimelineFilter = "Main";
+
+        function loadStore() {
+            const saved = localStorage.getItem('ficsona_dopamine_data');
+            return saved ? JSON.parse(saved) : INITIAL_DATA;
+        }
+
+        function saveStore() {
+            localStorage.setItem('ficsona_dopamine_data', JSON.stringify(appData));
+            refreshUI();
+        }
+
+        window.addEventListener('DOMContentLoaded', () => {
+            populateWorldSelector();
+            refreshUI();
+            initNetworkGraph();
+        });
+
+        function switchTab(tabId) {
+            document.querySelectorAll('.tab-content').forEach(el => el.classList.add('hidden'));
+            document.querySelectorAll('.nav-btn').forEach(btn => {
+                btn.className = "nav-btn w-full flex items-center gap-3 px-4 py-3 rounded-xl text-sm font-bold text-gray-600 hover:bg-pink-100 hover:text-indigo-950 transition-all";
+            });
+
+            document.getElementById(`tab-${tabId}`).classList.remove('hidden');
+            const activeNav = document.getElementById(`nav-${tabId}`);
+            if (activeNav) {
+                activeNav.className = "nav-btn w-full flex items-center gap-3 px-4 py-3 rounded-xl text-sm font-black transition-all bg-dopamineYellow text-indigo-950 border-2 border-indigo-950 shadow-neo-sm";
+            }
+
+            // Update Header Title
+            const titles = {
+                dashboard: "工作台概覽",
+                world: "世界觀與設定",
+                timeline: "時間線與事件",
+                relationships: "王者榮耀同款人物關係網"
+            };
+            document.getElementById('page-title').textContent = titles[tabId];
+
+            if (tabId === 'relationships' && activeGraphNetwork) {
+                setTimeout(() => {
+                    activeGraphNetwork.redraw();
+                    activeGraphNetwork.fit();
+                }, 100);
+            }
+        }
+
+        function populateWorldSelector() {
+            const select = document.getElementById('world-select');
+            select.innerHTML = '';
+            appData.worlds.forEach(w => {
+                const opt = document.createElement('option');
+                opt.value = w.id;
+                opt.textContent = w.name;
+                if (w.id === appData.activeWorldId) opt.selected = true;
+                select.appendChild(opt);
+            });
+        }
+
+        function changeActiveWorld(worldId) {
+            appData.activeWorldId = worldId;
+            saveStore();
+        }
+
+        function refreshUI() {
+            const currentWorld = appData.worlds.find(w => w.id === appData.activeWorldId) || appData.worlds[0];
+            const worldChars = appData.characters.filter(c => c.worldId === appData.activeWorldId);
+            const worldEvents = appData.events.filter(e => e.worldId === appData.activeWorldId);
+
+            // Dashboard Stats
+            document.getElementById('stat-chars').textContent = worldChars.length;
+            document.getElementById('stat-events').textContent = worldEvents.length;
+            document.getElementById('stat-relations').textContent = appData.relationships.length;
+
+            // Dashboard Events
+            const dashboardEventsEl = document.getElementById('dashboard-recent-events');
+            dashboardEventsEl.innerHTML = worldEvents.slice(0, 3).map(e => `
+                <div class="p-3.5 rounded-2xl bg-yellow-50 border-2 border-indigo-950 flex flex-col gap-1">
+                    <div class="flex justify-between items-center">
+                        <span class="text-xs font-black text-dopamineOrange">${e.year}</span>
+                        <span class="px-2 py-0.5 rounded-full text-[10px] font-black ${e.timeline==='Main'?'bg-dopaminePink text-white':'bg-dopaminePurple text-white'}">${e.timeline}</span>
+                    </div>
+                    <h4 class="text-xs font-black text-indigo-950">${e.title}</h4>
+                    <p class="text-[11px] font-bold text-gray-600 line-clamp-1">${e.desc}</p>
+                </div>
+            `).join('') || '<p class="text-xs font-bold text-gray-400">暫無事件</p>';
+
+            // Dashboard Characters
+            const dashboardCharsEl = document.getElementById('dashboard-recent-chars');
+            dashboardCharsEl.innerHTML = worldChars.slice(0, 4).map(c => `
+                <div class="p-3 rounded-2xl bg-pink-50 border-2 border-indigo-950 flex items-center gap-2">
+                    <img src="${c.avatar}" class="w-9 h-9 rounded-full object-cover border-2 border-indigo-950" onerror="this.src='https://placehold.co/100x100/ff4b82/ffffff?text=OC'">
+                    <div class="min-w-0">
+                        <h4 class="text-xs font-black text-indigo-950 truncate">${c.name}</h4>
+                        <p class="text-[10px] font-bold text-gray-500 truncate">${c.title}</p>
+                    </div>
+                </div>
+            `).join('') || '<p class="text-xs font-bold text-gray-400">暫無角色</p>';
+
+            // World Lore
+            document.getElementById('lore-title').textContent = currentWorld.name;
+            document.getElementById('lore-type-tag').textContent = currentWorld.type;
+            document.getElementById('lore-status-tag').textContent = currentWorld.status;
+            document.getElementById('lore-desc').textContent = currentWorld.description;
+
+            const factionsEl = document.getElementById('factions-list');
+            factionsEl.innerHTML = (currentWorld.factions || []).map(f => `
+                <div class="p-3 rounded-2xl bg-purple-50 border-2 border-indigo-950 space-y-1">
+                    <h5 class="text-xs font-black text-dopaminePurple">${f.name}</h5>
+                    <p class="text-[11px] font-bold text-gray-600">${f.desc}</p>
+                </div>
+            `).join('');
+
+            const worldListContainer = document.getElementById('world-list-container');
+            worldListContainer.innerHTML = appData.worlds.map(w => `
+                <button onclick="changeActiveWorld('${w.id}')" class="w-full text-left p-3 rounded-xl text-xs font-black transition border-2 ${w.id===appData.activeWorldId?'bg-dopaminePink text-white border-indigo-950 shadow-neo-sm':'bg-white text-indigo-950 border-transparent hover:bg-pink-100'} flex items-center justify-between">
+                    <span>${w.name}</span>
+                    <i class="fa-solid fa-chevron-right text-[10px]"></i>
+                </button>
+            `).join('');
+
+            renderTimeline();
+            populateDropdowns();
+
+            if (activeGraphNetwork) {
+                updateGraphData();
+            }
+        }
+
+        function filterTimeline(type) {
+            currentTimelineFilter = type;
+            document.getElementById('tl-btn-main').className = type === 'Main' 
+                ? 'dopamine-btn px-4 py-1.5 text-xs bg-dopaminePink text-white'
+                : 'dopamine-btn px-4 py-1.5 text-xs bg-white text-indigo-950';
+            
+            document.getElementById('tl-btn-if').className = type === 'IF' 
+                ? 'dopamine-btn px-4 py-1.5 text-xs bg-dopaminePurple text-white'
+                : 'dopamine-btn px-4 py-1.5 text-xs bg-white text-indigo-950';
+            
+            renderTimeline();
+        }
+
+        function renderTimeline() {
+            const container = document.getElementById('timeline-events-container');
+            const events = appData.events.filter(e => e.worldId === appData.activeWorldId && e.timeline === currentTimelineFilter);
+
+            if (events.length === 0) {
+                container.innerHTML = `<div class="text-xs font-bold text-gray-400 py-6">該分支尚無記載重大事件。</div>`;
+                return;
+            }
+
+            container.innerHTML = events.map(e => `
+                <div class="relative group">
+                    <div class="absolute -left-[41px] top-1 w-5 h-5 rounded-full bg-dopamineYellow border-2 border-indigo-950 shadow-neo-sm"></div>
+                    <div class="dopamine-card p-5 bg-white space-y-2">
+                        <div class="flex items-center justify-between">
+                            <span class="text-xs font-black text-dopaminePink tracking-wide">${e.year}</span>
+                            <span class="px-2.5 py-0.5 rounded-full text-[10px] font-black bg-purple-100 text-dopaminePurple border border-purple-300">${e.timeline} Line</span>
+                        </div>
+                        <h3 class="text-base font-black text-indigo-950">${e.title}</h3>
+                        <p class="text-xs font-bold text-gray-600 leading-relaxed">${e.desc}</p>
+                    </div>
+                </div>
+            `).join('');
+        }
+
+        function initNetworkGraph() {
+            const container = document.getElementById('network-graph');
+            const data = getVisGraphData();
+
+            const options = {
+                nodes: {
+                    shape: 'circularImage',
+                    borderWidth: 4,
+                    borderWidthSelected: 6,
+                    color: {
+                        border: '#ff4b82',
+                        background: '#ffffff',
+                        highlight: { border: '#ffc83b', background: '#ffffff' }
+                    },
+                    font: { color: '#1e1b4b', size: 13, face: 'Inter', strokeWidth: 2, strokeColor: '#ffffff' }
+                },
+                edges: {
+                    color: { color: '#8b5cf6', highlight: '#ff4b82' },
+                    font: { color: '#1e1b4b', size: 11, face: 'Inter', strokeWidth: 3, strokeColor: '#ffffff', align: 'middle' },
+                    width: 3,
+                    smooth: { type: 'curvedCW', roundness: 0.2 }
+                },
+                physics: {
+                    solver: 'forceAtlas2Based',
+                    forceAtlas2Based: {
+                        gravitationalConstant: -60,
+                        centralGravity: 0.015,
+                        springLength: 140,
+                        springConstant: 0.08
+                    }
+                },
+                interaction: { hover: true, zoomView: true }
+            };
+
+            activeGraphNetwork = new vis.Network(container, data, options);
+
+            // Click node to focus center (Honor of Kings Style)
+            activeGraphNetwork.on('click', function(params) {
+                if (params.nodes.length > 0) {
+                    const nodeId = params.nodes[0];
+                    selectedCharacterId = nodeId;
+                    
+                    activeGraphNetwork.focus(nodeId, {
+                        scale: 1.25,
+                        animation: { duration: 700, easingFunction: 'easeInOutQuad' }
+                    });
+
+                    renderCharacterDrawer(nodeId);
+                    updateGraphData();
+                }
+            });
+
+            renderCharacterDrawer(selectedCharacterId);
+        }
+
+        function getVisGraphData() {
+            const worldChars = appData.characters.filter(c => c.worldId === appData.activeWorldId);
+            const nodes = worldChars.map(c => {
+                const isCenter = c.id === selectedCharacterId;
+                return {
+                    id: c.id,
+                    label: c.name,
+                    image: c.avatar || 'https://placehold.co/100x100/ff4b82/ffffff?text=OC',
+                    size: isCenter ? 42 : 28,
+                    color: {
+                        border: isCenter ? '#ffc83b' : '#ff4b82'
+                    }
+                };
+            });
+
+            const edges = appData.relationships.map((r, index) => ({
+                id: `e_${index}`,
+                from: r.from,
+                to: r.to,
+                label: r.label
+            }));
+
+            return { nodes: new vis.DataSet(nodes), edges: new vis.DataSet(edges) };
+        }
+
+        function updateGraphData() {
+            if (!activeGraphNetwork) return;
+            activeGraphNetwork.setData(getVisGraphData());
+        }
+
+        function resetGraphFocus() {
+            if (activeGraphNetwork) {
+                activeGraphNetwork.fit({ animation: { duration: 600 } });
+            }
+        }
+
+        function renderCharacterDrawer(charId) {
+            const drawer = document.getElementById('char-drawer');
+            const char = appData.characters.find(c => c.id === charId);
+
+            if (!char) {
+                drawer.innerHTML = `<div class="text-xs font-bold text-gray-400">請點擊關聯圖中的角色節點。</div>`;
+                return;
+            }
+
+            const charRelations = appData.relationships.filter(r => r.from === char.id || r.to === char.id);
+
+            drawer.innerHTML = `
+                <div class="text-center space-y-3 border-b-2 border-indigo-950 pb-4">
+                    <div class="relative inline-block">
+                        <img src="${char.avatar}" class="w-20 h-20 rounded-full mx-auto object-cover border-4 border-dopamineYellow shadow-neo-sm" onerror="this.src='https://placehold.co/100x100/ff4b82/ffffff?text=OC'">
+                        <span class="absolute -bottom-1 -right-1 bg-dopaminePink text-white text-[10px] font-black px-2 py-0.5 rounded-full border border-indigo-950">OC</span>
+                    </div>
+                    <div>
+                        <h3 class="text-lg font-black text-indigo-950">${char.name}</h3>
+                        <p class="text-xs font-black text-dopaminePink">${char.title}</p>
+                        <span class="inline-block mt-1 px-3 py-0.5 rounded-full text-[10px] font-black bg-purple-100 text-dopaminePurple border border-purple-300">${char.faction || '無陣營'}</span>
+                    </div>
+                </div>
+
+                <div class="space-y-3">
+                    <div>
+                        <h4 class="text-xs font-black text-gray-500 uppercase tracking-wider mb-1">📜 角色背景檔案</h4>
+                        <p class="text-xs font-bold text-indigo-950 leading-relaxed bg-pink-50 p-3 rounded-xl border-2 border-indigo-950">${char.bio || '暫無設定。'}</p>
+                    </div>
+
+                    <div>
+                        <h4 class="text-xs font-black text-gray-500 uppercase tracking-wider mb-2">💞 人物關係鏈 (${charRelations.length})</h4>
+                        <div class="space-y-2">
+                            ${charRelations.map(r => {
+                                const otherId = r.from === char.id ? r.to : r.from;
+                                const otherChar = appData.characters.find(c => c.id === otherId);
+                                return `
+                                    <div class="flex items-center justify-between p-2.5 rounded-xl bg-yellow-50 border-2 border-indigo-950 text-xs font-black">
+                                        <span class="text-indigo-950">${otherChar ? otherChar.name : '未知'}</span>
+                                        <span class="px-2 py-0.5 rounded-full text-[10px] bg-dopaminePink text-white border border-indigo-950">${r.label}</span>
+                                    </div>
+                                `;
+                            }).join('') || '<p class="text-xs font-bold text-gray-400">暫無連线關係</p>'}
+                        </div>
+                    </div>
+                </div>
+            `;
+        }
+
+        function populateDropdowns() {
+            const worldChars = appData.characters.filter(c => c.worldId === appData.activeWorldId);
+            const fromSel = document.getElementById('rel-from');
+            const toSel = document.getElementById('rel-to');
+
+            const optionsHTML = worldChars.map(c => `<option value="${c.id}">${c.name} (${c.title})</option>`).join('');
+            if (fromSel) fromSel.innerHTML = optionsHTML;
+            if (toSel) toSel.innerHTML = optionsHTML;
+        }
+
+        function openModal(id) {
+            document.getElementById(id).classList.remove('hidden');
+        }
+
+        function closeModal(id) {
+            document.getElementById(id).classList.add('hidden');
+        }
+
+        function handleAddCharacter(e) {
+            e.preventDefault();
+            const newChar = {
+                id: 'c_' + Date.now(),
+                worldId: appData.activeWorldId,
+                name: document.getElementById('char-name').value,
+                title: document.getElementById('char-title').value,
+                faction: document.getElementById('char-faction').value,
+                avatar: document.getElementById('char-avatar').value || 'https://placehold.co/100x100/ff4b82/ffffff?text=OC',
+                bio: document.getElementById('char-bio').value
+            };
+
+            appData.characters.push(newChar);
+            saveStore();
+            closeModal('modal-add-character');
+            document.getElementById('form-add-character').reset();
+        }
+
+        function handleAddRelation(e) {
+            e.preventDefault();
+            const from = document.getElementById('rel-from').value;
+            const to = document.getElementById('rel-to').value;
+            const label = document.getElementById('rel-label').value;
+
+            if (from === to) {
+                alert('關係起止角色不能為同一人！');
+                return;
+            }
+
+            appData.relationships.push({ from, to, label });
+            saveStore();
+            closeModal('modal-add-relation');
+            document.getElementById('form-add-relation').reset();
+        }
+
+        function handleAddEvent(e) {
+            e.preventDefault();
+            const newEvent = {
+                id: 'e_' + Date.now(),
+                worldId: appData.activeWorldId,
+                title: document.getElementById('event-title').value,
+                year: document.getElementById('event-year').value,
+                timeline: document.getElementById('event-timeline-type').value,
+                desc: document.getElementById('event-desc').value
+            };
+
+            appData.events.push(newEvent);
+            saveStore();
+            closeModal('modal-add-event').reset();
+        }
+    </script>
+</body>
+</html>
